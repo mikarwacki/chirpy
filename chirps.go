@@ -42,3 +42,32 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, req *http.Reques
 	rChirp := responseChirp{ID: dbChirp.ID, CreatedAt: dbChirp.CreatedAt, UpdatedAt: dbChirp.UpdatedAt, Body: dbChirp.Body, UserID: dbChirp.UserID}
 	respondWithJson(w, 201, rChirp)
 }
+
+func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
+	chirps, err := cfg.db.GetChirps(r.Context())
+	if err != nil {
+		respondWithError(w, 400, "Error getting chirps")
+		return
+	}
+	rChirps := make([]responseChirp, len(chirps))
+	for i, chr := range chirps {
+		rChirps[i] = responseChirp{ID: chr.ID, CreatedAt: chr.CreatedAt, UpdatedAt: chr.UpdatedAt, Body: chr.Body, UserID: chr.UserID}
+	}
+
+	respondWithJson(w, 200, rChirps)
+}
+
+func (cfg *apiConfig) handlerGetChirpById(w http.ResponseWriter, r *http.Request) {
+	chirpId, err := uuid.Parse(r.PathValue("chirpId"))
+	if err != nil {
+		log.Printf("Invalid uuid %v", err)
+		respondWithError(w, 400, "Invalid chirp id")
+	}
+	chirp, err := cfg.db.GetChirpById(r.Context(), chirpId)
+	if err != nil {
+		respondWithError(w, 404, "Chirp doesn't exist")
+	}
+
+	rChirp := responseChirp{ID: chirp.ID, CreatedAt: chirp.CreatedAt, UpdatedAt: chirp.UpdatedAt, Body: chirp.Body, UserID: chirp.UserID}
+	respondWithJson(w, 200, rChirp)
+}
