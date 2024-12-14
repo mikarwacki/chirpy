@@ -11,9 +11,9 @@ import (
 )
 
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, req *http.Request) {
+	userId := req.Context().Value("userId").(uuid.UUID)
 	type chirp struct {
-		Body   string    `json:"body"`
-		UserId uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
 	}
 
 	defer req.Body.Close()
@@ -32,8 +32,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	log.Println(chir.UserId)
-	dbChirp, err := cfg.db.CreateChirp(req.Context(), database.CreateChirpParams{Body: chir.Body, UserID: chir.UserId})
+	dbChirp, err := cfg.db.CreateChirp(req.Context(), database.CreateChirpParams{Body: chir.Body, UserID: userId})
 	if err != nil {
 		log.Printf("Error creating chirp: %v", err)
 		respondWithError(w, 400, "Error creating chirp")

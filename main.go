@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -10,12 +11,14 @@ import (
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/mikarwacki/chirpy/internal/auth"
 	"github.com/mikarwacki/chirpy/internal/database"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
+	jwtSecret      string
 }
 
 func main() {
@@ -25,6 +28,7 @@ func main() {
 	godotenv.Load()
 
 	dbUrl := os.Getenv("DB_URL")
+	jwtSecret := os.Getenv("JWT_SECRET")
 
 	log.Printf("Connecting to db with url: %v\n", dbUrl)
 	db, err := sql.Open("postgres", dbUrl)
@@ -36,6 +40,7 @@ func main() {
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
 		db:             dbQueries,
+		jwtSecret:      jwtSecret,
 	}
 
 	mux := http.NewServeMux()
@@ -44,9 +49,10 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
 	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
-	mux.HandleFunc("POST /api/chirps", middlewareValidate(apiCfg.handlerCreateChirp))
+	mux.HandleFunc("POST /api/chirps", apiCfg.middlewareAuthorize(middlewareValidate(apiCfg.handlerCreateChirp)))
 	mux.HandleFunc("GET /api/chirps", apiCfg.handlerGetChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpId}", apiCfg.handlerGetChirpById)
+	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -72,5 +78,24 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg.fileserverHits.Add(1)
 		next.ServeHTTP(w, r)
+	})
+}
+
+func (cfg *apiConfig) middlewareAuthorize(next http.Handler) http.HandlerFunc {
+	log.Printf("authorizing")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, err := auth.GetBearerToken(r.Header)
+		if err != nil {
+			respondWithError(w, 401, "Unauthorized")
+			return
+		}
+
+		userId, err := auth.ValidateJWT(token, cfg.jwtSecret)
+		if err != nil {
+			respondWithError(w, 401, "Unauthorized")
+			return
+		}
+		ctx := context.WithValue(r.Context(), "userId", userId)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
