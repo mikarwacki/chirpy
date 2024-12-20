@@ -7,7 +7,7 @@ func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
 
 	err := cfg.db.DeleteUsers(r.Context())
 	if err != nil {
-		respondWithError(w, 400, "Error deleting users")
+		respondWithError(w, 400, "Error deleting users", err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

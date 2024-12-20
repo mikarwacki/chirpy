@@ -15,3 +15,8 @@ DELETE FROM users;
 -- name: GetUserByEmail :one
 SELECT * FROM users
 WHERE email = $1 LIMIT 1;
+
+-- name: MarkUserRedById :exec
+UPDATE users
+SET is_chirpy_red = true
+WHERE id = $1;

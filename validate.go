@@ -23,19 +23,19 @@ func middlewareValidate(next http.HandlerFunc) http.HandlerFunc {
 		defer r.Body.Close()
 		dat, err := io.ReadAll(r.Body)
 		if err != nil {
-			respondWithError(w, 500, "Something went wrong")
+			respondWithError(w, 500, "Something went wrong", err)
 			return
 		}
 
 		chp := chirpRequest{}
 		err = json.Unmarshal(dat, &chp)
 		if err != nil {
-			respondWithError(w, 400, "Something went wrong")
+			respondWithError(w, 400, "Something went wrong", err)
 			return
 		}
 
 		if len(chp.Body) > maxChirpLen {
-			respondWithError(w, 400, "Chrip is too long")
+			respondWithError(w, 400, "Chrip is too long", err)
 			return
 		}
 
@@ -44,7 +44,7 @@ func middlewareValidate(next http.HandlerFunc) http.HandlerFunc {
 		newBody, err := json.Marshal(chp)
 		if err != nil {
 			log.Printf("Failed marshaling new body %v", err)
-			respondWithError(w, 400, "Failed marshaling new body")
+			respondWithError(w, 400, "Failed marshaling new body", err)
 			return
 		}
 		r.Body = io.NopCloser(bytes.NewBuffer(newBody))
